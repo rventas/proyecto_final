@@ -46,5 +46,5 @@ def main(request):
     process.start()
     filep.close()
     
-    blob2 = bucket.blob('companies.csv')
+    blob2 = bucket.blob('data/companies.csv')
     blob2.upload_from_filename(filename='/tmp/data.txt')
