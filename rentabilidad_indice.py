@@ -13,7 +13,7 @@ print('Contexto creado')
 
 # Recogemos parametros
 INPUT_CSV = sys.argv[1]  # 'gs://financials-data-bucket/data/GSPC-2.csv'
-OUTPUT_CSV = sys.argv[2] #gs://financials-data-bucket/data/prueba/indices2.csv
+OUTPUT_CSV = sys.argv[2] # gs://financials-data-bucket/data/2_staging/index_anuals.csv
 
 indicesDF = sqlContext.read.format('csv') \
   .options(header='true', inferSchema='true') \
@@ -38,19 +38,14 @@ print('Columnas creadas')
 #Rentabilidad diaria
 windowSpec = Window.orderBy(F.col("DATE")).rowsBetween(-1, 0)
 indicesDF = indicesDF.withColumn('AUX', F.sum("ADJ_CLOSE").over(windowSpec))
-indicesDF = indicesDF.withColumn("RETURNS", (F.col("ADJ_CLOSE") - (F.col("AUX")-F.col("ADJ_CLOSE"))) / F.col("ADJ_CLOSE")).drop("AUX")
+indicesDF = indicesDF.withColumn("RETURNS", (F.col("ADJ_CLOSE") - (F.col("AUX")-F.col("ADJ_CLOSE"))) / (F.col("AUX")-F.col("ADJ_CLOSE"))).drop("AUX")
 
 print('Rentabilidad diaria')
 
 #Rentabilidad acumulada
-wCY = Window.partitionBy("YEAR").orderBy("DATE")
-#Nos quedamos con el precio de cada companya en cada anyo el dia 1
-dico = indicesDF.withColumn("RminD",  F.row_number().over(wCY)).filter("RminD == 1").drop("DATE", "RminD") 
-#Lista del tipo codyear: precio inicial al principio de anyo
-df_dict = [{str(r['YEAR']): r['ADJ_CLOSE']} for r in dico.orderBy("YEAR").collect()] #Es una lista
-df_dict = dict((key,d[key]) for d in df_dict for key in d) #Transformo a diccionario
-mapping_expr = create_map([F.lit(x) for x in chain(*df_dict.items())]) #Transformamos a un mapa
-r_acuDF = indicesDF.withColumn("CUMULATIVE_RETURNS", (F.col("ADJ_CLOSE") - mapping_expr.getItem(F.col("YEAR").cast(StringType()))) / mapping_expr.getItem(F.col("YEAR").cast(StringType())))
+precioIniDF = indicesDF.sort(F.desc('DATE')).groupBy('YEAR').agg(F.last('OPEN').alias('PRICE_START'))
+indicesDF = indicesDF.join(precioIniDF, on=['YEAR'])
+indicesDF = indicesDF.withColumn('CUMULATIVE_RETURNS', ((F.col('ADJ_CLOSE') - F.col('PRICE_START')) / (F.col('PRICE_START'))))
 
 print('Rentabilidad acumulada')
 
