@@ -39,7 +39,6 @@ priceDF = priceDF.withColumn("RETURNS", (F.col("PRICE") - (F.col("AUX") - F.col(
 print('Rentabilidad diaria')
 
 #Rentabilidad acumulada
-df = priceDF.sort(F.desc('DATE')).groupBy('YEAR', 'CODE')
 precioIniDF = priceDF.sort(F.desc('DATE')).groupBy('YEAR', 'CODE').agg(F.last('PRICE').alias('PRICE_START'))
 priceDF = precioIniDF.join(priceDF, on=['YEAR', 'CODE'])
 priceDF = priceDF.withColumn('CUMULATIVE_RETURNS', ((F.col('PRICE') - F.col('PRICE_START')) / (F.col('PRICE_START'))))
